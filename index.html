@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Color Dash</title>
+<style>
+:root{color-scheme:dark;--bg:#090d1d;--panel:#121a32;--cyan:#58f0ff;--pink:#ff4f9a;--gold:#ffd166}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#fff;touch-action:manipulation}
+body{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top,#182449 0%,#090d1d 65%)}
+#wrap{position:relative;width:min(100vw,520px);height:min(100vh,900px);height:min(100dvh,900px);min-height:480px;overflow:hidden;background:linear-gradient(180deg,#111a37,#080b19);border:1px solid #26345d}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;inset:0 0 auto;padding:18px 18px 0;display:flex;justify-content:space-between;pointer-events:none;text-shadow:0 2px 12px #000}
+.stat{font-size:12px;letter-spacing:2px;color:#aebee8}.num{font-size:26px;font-weight:900;letter-spacing:0;color:white}
+#hint{position:absolute;left:0;right:0;bottom:16px;text-align:center;color:#aebee8;font-size:12px;letter-spacing:1px;pointer-events:none}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#070a16bb;backdrop-filter:blur(6px)}
+.card{width:100%;max-width:360px;text-align:center;padding:30px 22px;border:1px solid #33456f;border-radius:24px;background:linear-gradient(145deg,#182345f5,#0b1024f5);box-shadow:0 20px 70px #0008}
+.kicker{font-size:11px;letter-spacing:4px;color:var(--cyan);font-weight:800}
+h1{font-size:clamp(38px,10vw,56px);line-height:.95;margin:12px 0 14px;font-weight:1000;letter-spacing:-2px}
+h1 span{color:var(--cyan)}p{color:#b7c4e8;line-height:1.55;font-size:14px}
+button{border:0;border-radius:14px;padding:15px 22px;width:100%;margin-top:12px;background:linear-gradient(90deg,#58f0ff,#8e8cff);color:#071020;font-size:15px;font-weight:900;letter-spacing:1px;cursor:pointer;box-shadow:0 8px 28px #58f0ff35}
+button:active{transform:scale(.98)}.small{font-size:11px;color:#8494c1;margin-top:18px}
+.hidden{display:none!important}
+</style>
+
+<meta name="theme-color" content="#090d1d">
+<meta name="description" content="Dodge obstacles, collect coins, unlock neon characters, and chase achievements in Color Dash.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+</head>
+<body>
+<div id="wrap">
+<canvas id="game" aria-label="Color Dash game"></canvas>
+<div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div><div class="stat" style="margin-top:8px">LEVEL <span id="level">1</span></div><div class="stat" style="margin-top:8px;color:#ffd166">COINS <span id="wallet">0</span></div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div><button id="sound" type="button" style="pointer-events:auto;width:auto;margin-top:8px;padding:7px 10px;font-size:11px;border-radius:10px">SOUND: ON</button></div></div>
+<div id="hint">TAP LEFT OR RIGHT TO DODGE</div>
+<div id="overlay"><div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div></div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),levelEl=document.getElementById('level'),walletEl=document.getElementById('wallet'),soundBtn=document.getElementById('sound');
+let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,shieldSpawn=7,speed=210,playerLane=1,playerY=0,obstacles=[],coins=[],shields=[],particles=[],stars=[],level=1,hasShield=false,soundOn=true,audioCtx=null;
+const skins=[
+ {id:'cyan',name:'Neon Cyan',color:'#58f0ff',price:0,desc:'The classic look'},
+ {id:'pink',name:'Hot Pink',color:'#ff4f9a',price:10,desc:'Bright and bold'},
+ {id:'gold',name:'Gold Rush',color:'#ffd166',price:20,desc:'Shine on the track'},
+ {id:'purple',name:'Galaxy Purple',color:'#b18cff',price:30,desc:'A cosmic glow'}
+];
+let wallet=0,owned=['cyan'],activeSkin='cyan';
+try{wallet=Number(localStorage.getItem('colordash-coins')||0);owned=JSON.parse(localStorage.getItem('colordash-owned')||'["cyan"]');activeSkin=localStorage.getItem('colordash-skin')||'cyan';if(!Array.isArray(owned))owned=['cyan'];if(!owned.includes('cyan'))owned.push('cyan')}catch(e){}
+function saveShop(){try{localStorage.setItem('colordash-coins',String(wallet));localStorage.setItem('colordash-owned',JSON.stringify(owned));localStorage.setItem('colordash-skin',activeSkin)}catch(e){}walletEl.textContent=wallet}
+function playerColor(){return (skins.find(s=>s.id===activeSkin)||skins[0]).color}
+saveShop();
+try{best=Number(localStorage.getItem('colordash-best')||0)}catch(e){}bestEl.textContent=best;
+function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
+window.addEventListener('resize',resize);resize();
+function laneX(l){return W*(.2+l*.3)}
+function roundRect(x,y,w,h,r){
+  r=Math.max(0,Math.min(r,w/2,h/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+function showShop(){
+ playing=false;
+ overlay.innerHTML=`<div class="card"><div class="kicker">CUSTOMIZE YOUR RUN</div><h1 style="font-size:36px">CHARACTER<br><span>SHOP</span></h1><p>Coins collected during runs unlock new cube colors. You have <strong style="color:#ffd166">${wallet} coins</strong>.</p><div id="skinlist" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px"></div><button id="shopback" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK</button><div class="small">Coins and skins are saved on this device.</div></div>`;
+ overlay.classList.remove('hidden');
+ const list=document.getElementById('skinlist');
+ skins.forEach(s=>{
+   const isOwned=owned.includes(s.id),isActive=activeSkin===s.id;
+   const b=document.createElement('button');
+   b.style.cssText=`margin:0;padding:12px 8px;background:linear-gradient(145deg,#17213d,#0b1024);border:1px solid ${s.color};box-shadow:none;color:white;font-size:12px;letter-spacing:0`;
+   b.innerHTML=`<span style="display:block;width:26px;height:26px;border-radius:8px;background:${s.color};box-shadow:0 0 16px ${s.color};margin:0 auto 8px"></span><strong>${s.name}</strong><br><span style="display:block;margin-top:5px;color:#b7c4e8">${isActive?'EQUIPPED':isOwned?'OWNED':s.price+' COINS'}</span>`;
+   b.addEventListener('click',()=>{
+     if(isOwned){activeSkin=s.id;saveShop();showShop();tone(600,.06);return}
+     if(wallet>=s.price){wallet-=s.price;owned.push(s.id);activeSkin=s.id;saveShop();showShop();tone(800,.1)}
+     else {const p=overlay.querySelector('.card p');p.innerHTML=`You need <strong style="color:#ffd166">${s.price-wallet} more coins</strong> to unlock ${s.name}. Play a run and collect coins!`}
+   });
+   list.appendChild(b);
+ });
+ document.getElementById('shopback').addEventListener('click',showTitle);
+}
+function showAchievements(){
+ playing=false;
+ let bestScore=0;try{bestScore=Number(localStorage.getItem('colordash-best')||0)}catch(e){}
+ const items=[
+  {name:'First Steps',desc:'Finish your first run',done:bestScore>0,icon:'🏁'},
+  {name:'Century Club',desc:'Reach 100 points in a run',done:bestScore>=100,icon:'💯'},
+  {name:'Coin Collector',desc:'Save up 25 coins',done:wallet>=25,icon:'🪙'},
+  {name:'Fashion Dash',desc:'Unlock a character skin',done:owned.length>=2,icon:'🎨'},
+  {name:'Style Master',desc:'Own all four skins',done:owned.length>=4,icon:'🏆'}
+ ];
+ overlay.innerHTML=`<div class="card"><div class="kicker">YOUR PROGRESS</div><h1 style="font-size:36px">ACHIEVE<br><span>MORE</span></h1><p>Complete challenges as you play. Progress is saved on this device.</p><div id="achievementlist" style="display:grid;gap:9px;text-align:left;margin:14px 0"></div><button id="achback" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK</button></div>`;
+ overlay.classList.remove('hidden');
+ const list=document.getElementById('achievementlist');
+ items.forEach(a=>{const row=document.createElement('div');row.style.cssText=`display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:${a.done?'#183044':'#11182d'};border:1px solid ${a.done?'#58f0ff':'#293553'};opacity:${a.done?1:.72}`;row.innerHTML=`<span style="font-size:24px">${a.done?'✅':a.icon}</span><span style="flex:1"><strong style="display:block;font-size:13px">${a.name}</strong><small style="color:#b7c4e8">${a.desc}</small></span><strong style="color:${a.done?'#58f0ff':'#8290b5'}">${a.done?'DONE':'LOCKED'}</strong>`;list.appendChild(row)});
+ document.getElementById('achback').addEventListener('click',showTitle);
+}
+function showTitle(){
+ overlay.innerHTML=`<div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
+ overlay.classList.remove('hidden');
+ document.getElementById('start').addEventListener('click',reset);
+ document.getElementById('shop').addEventListener('click',showShop);
+ document.getElementById('achievements').addEventListener('click',showAchievements);
+}
+document.getElementById('shop').addEventListener('click',showShop);
+document.getElementById('achievements').addEventListener('click',showAchievements);
+function reset(){score=0;level=1;speed=210;spawn=.6;coinSpawn=1.5;shieldSpawn=7;obstacles=[];coins=[];shields=[];particles=[];playerLane=1;hasShield=false;playing=true;last=performance.now();scoreEl.textContent='0';levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
+function end(){playing=false;tone(120,.22,'sawtooth');best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-best',best)}catch(e){}overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1><p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p><button id="again">TRY AGAIN</button><button id="gameShop" style="background:linear-gradient(90deg,#ffd166,#ff9f43)">CHARACTER SHOP</button><button id="home" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">MAIN MENU</button><div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;overlay.classList.remove('hidden');document.getElementById('again').addEventListener('click',reset);document.getElementById('gameShop').addEventListener('click',showShop);document.getElementById('home').addEventListener('click',showTitle);}
+function tone(freq,duration=0.08,type='sine'){
+ if(!soundOn)return;
+ try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
+ const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type;osc.frequency.value=freq;gain.gain.setValueAtTime(.055,audioCtx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+duration);
+ }catch(e){}
+}
+soundBtn.addEventListener('click',()=>{soundOn=!soundOn;soundBtn.textContent='SOUND: '+(soundOn?'ON':'OFF');if(soundOn)tone(660,.07)});
+function move(dir){if(!playing)return;playerLane=Math.max(0,Math.min(2,playerLane+dir));tone(330,.035,'triangle');}
+canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();move(e.clientX-r.left<r.width/2?-1:1)});
+window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if((e.key===' '||e.key==='Enter')&&!playing)reset()});
+startBtn.addEventListener('click',reset);
+function burst(x,y,color){for(let i=0;i<12;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.5,color})}
+function update(dt){if(!playing)return;score+=Math.floor(dt*10);speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
+level=1+Math.floor(score/100);levelEl.textContent=String(level);speed=210+Math.min((level-1)*28,210);
+spawn-=dt;if(spawn<=0){obstacles.push({lane:Math.floor(Math.random()*3),y:-40,size:24+Math.random()*10});spawn=Math.max(.34,1.0-score*.002)+Math.random()*.28}
+coinSpawn-=dt;if(coinSpawn<=0){coins.push({lane:Math.floor(Math.random()*3),y:-20,r:8});coinSpawn=1.4+Math.random()*1.3}
+shieldSpawn-=dt;if(shieldSpawn<=0){shields.push({lane:Math.floor(Math.random()*3),y:-24,r:11});shieldSpawn=10+Math.random()*8}
+for(const o of obstacles)o.y+=speed*dt;for(const c of coins)c.y+=speed*dt;for(const sh of shields)sh.y+=speed*dt;
+const px=laneX(playerLane),py=playerY;
+for(const o of obstacles){if(o.lane===playerLane&&Math.abs(o.y-py)<27){if(hasShield){hasShield=false;burst(px,py,'#58f0ff');tone(520,.12);o.y=H+100;}else{burst(px,py,'#ff4f9a');end();return}}}
+obstacles=obstacles.filter(o=>o.y<H+60);
+coins=coins.filter(c=>{if(c.lane===playerLane&&Math.abs(c.y-py)<27){score+=25;wallet+=1;scoreEl.textContent=score;saveShop();burst(laneX(c.lane),c.y,'#ffd166');tone(880,.08);return false}return c.y<H+30});
+shields=shields.filter(sh=>{if(sh.lane===playerLane&&Math.abs(sh.y-py)<30){hasShield=true;burst(laneX(sh.lane),sh.y,'#58f0ff');tone(740,.13);document.getElementById('hint').textContent='SHIELD READY — ONE FREE HIT!';return false}return sh.y<H+30});
+particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;return p.life>0});
+}
+function draw(){ctx.clearRect(0,0,W,H);const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#111a37');g.addColorStop(1,'#080b19');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+for(const s of stars){ctx.globalAlpha=s.a;ctx.fillStyle='#b9d7ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
+ctx.strokeStyle='#253458';ctx.lineWidth=1;for(let l=0;l<3;l++){ctx.beginPath();ctx.moveTo(laneX(l),0);ctx.lineTo(laneX(l),H);ctx.stroke()}
+ctx.strokeStyle='#253458';ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.35,0);ctx.lineTo(W*.35,H);ctx.moveTo(W*.65,0);ctx.lineTo(W*.65,H);ctx.stroke();ctx.setLineDash([]);
+for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=18;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
+for(const sh of shields){const sx=laneX(sh.lane);ctx.shadowBlur=20;ctx.shadowColor='#58f0ff';ctx.strokeStyle='#58f0ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sh.y,sh.r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#bdfaff';ctx.fillRect(sx-3,sh.y-6,6,12);ctx.shadowBlur=0}
+for(const c of coins){ctx.shadowBlur=18;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
+const x=laneX(playerLane),y=playerY;if(hasShield){ctx.strokeStyle='#58f0ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,25,0,Math.PI*2);ctx.stroke()}ctx.shadowBlur=25;ctx.shadowColor=playerColor();ctx.fillStyle=playerColor();roundRect(x-15,y-15,30,30,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff';ctx.lineWidth=2;roundRect(x-10,y-10,20,20,6);ctx.stroke();
+for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}ctx.globalAlpha=1;
+if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle='#58f0ff';ctx.fillRect(0,H-4,W*prog,4)}
+}
+function loop(t){const dt=Math.min(Math.max((t-last)/1000||0,0),.04);last=t;try{update(dt);draw()}catch(err){console.error('Color Dash frame error:',err)}requestAnimationFrame(loop)}
+last=performance.now();requestAnimationFrame(loop);
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
+
+</body>
+</html>
