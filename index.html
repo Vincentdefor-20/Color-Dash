@@ -13,7 +13,7 @@ canvas{display:block;width:100%;height:100%}
 #hud{position:absolute;inset:0 0 auto;padding:18px 18px 0;display:flex;justify-content:space-between;pointer-events:none;text-shadow:0 2px 12px #000}
 .stat{font-size:12px;letter-spacing:2px;color:#aebee8}.num{font-size:26px;font-weight:900;letter-spacing:0;color:white}
 #hint{position:absolute;left:0;right:0;bottom:16px;text-align:center;color:#aebee8;font-size:12px;letter-spacing:1px;pointer-events:none}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#070a16bb;backdrop-filter:blur(6px)}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#070a16bb;backdrop-filter:blur(6px)} #overlay.settings-mode{background:transparent;backdrop-filter:none;padding:12px;pointer-events:none} #overlay.settings-mode .card{pointer-events:auto;max-height:82%;overflow-y:auto;padding:22px 18px;background:#10182df2;border:1px solid #58f0ff66;box-shadow:0 12px 40px #0008} #overlay.settings-mode h1{font-size:30px!important;margin:8px 0} #overlay.settings-mode p{font-size:13px;margin:8px 0 12px} #overlay.settings-mode button{padding:11px 14px;margin-top:8px;font-size:13px} #overlay.settings-mode .small{margin-top:12px}
 .card{width:100%;max-width:360px;text-align:center;padding:30px 22px;border:1px solid #33456f;border-radius:24px;background:linear-gradient(145deg,#182345f5,#0b1024f5);box-shadow:0 20px 70px #0008}
 .kicker{font-size:11px;letter-spacing:4px;color:var(--cyan);font-weight:800}
 h1{font-size:clamp(38px,10vw,56px);line-height:.95;margin:12px 0 14px;font-weight:1000;letter-spacing:-2px}
@@ -81,7 +81,7 @@ function roundRect(x,y,w,h,r){
   ctx.quadraticCurveTo(x,y,x+r,y);
   ctx.closePath();
 }
-function showShop(){
+function showShop(){ overlay.classList.remove('settings-mode');
  playing=false;
  overlay.innerHTML=`<div class="card"><div class="kicker">CUSTOMIZE YOUR RUN</div><h1 style="font-size:36px">CHARACTER<br><span>SHOP</span></h1><p>Coins collected during runs unlock new cube colors. You have <strong style="color:#ffd166">${wallet} coins</strong>.</p><div id="skinlist" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px"></div><button id="shopback" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK</button><div class="small">Coins and skins are saved on this device.</div></div>`;
  overlay.classList.remove('hidden');
@@ -109,7 +109,7 @@ function showShop(){
  });
  document.getElementById('shopback').addEventListener('click',showTitle);
 }
-function showAchievements(){
+function showAchievements(){ overlay.classList.remove('settings-mode');
  playing=false;
  let bestScore=0;try{bestScore=Number(localStorage.getItem('colordash-best')||0)}catch(e){}
  const items=[
@@ -127,7 +127,7 @@ function showAchievements(){
  items.forEach(a=>{const row=document.createElement('div');row.style.cssText=`display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:${a.done?'#183044':'#11182d'};border:1px solid ${a.done?'#58f0ff':'#293553'};opacity:${a.done?1:.72}`;row.innerHTML=`<span style="font-size:24px">${a.done?'✅':a.icon}</span><span style="flex:1"><strong style="display:block;font-size:13px">${a.name}</strong><small style="color:#b7c4e8">${a.desc}</small></span><strong style="color:${a.done?'#58f0ff':'#8290b5'}">${a.done?'DONE':'LOCKED'}</strong>`;list.appendChild(row)});
  document.getElementById('achback').addEventListener('click',showTitle);
 }
-function showSettings(){
+function showSettings(){ overlay.classList.add('settings-mode');
  playing=false;
  const themeButtons=Object.keys(themes).map(id=>`<button data-theme="${id}" style="background:${themes[id].top};border:2px solid ${activeTheme===id?themes[id].accent:'#33456f'};color:white;box-shadow:none;margin:4px 0">${activeTheme===id?'✓ ':''}${themes[id].name}</button>`).join('');
  overlay.innerHTML=`<div class="card"><div class="kicker">MAKE IT YOURS</div><h1 style="font-size:34px">MUSIC &<br><span>THEMES</span></h1><p>Choose a colour mood and turn on an original, computer-generated arcade melody. No music files or outside tracks are used.</p><div style="text-align:left;font-size:12px;letter-spacing:2px;color:#aebee8;margin:16px 0 8px">COLOUR THEME</div>${themeButtons}<button id="musicToggle" style="background:linear-gradient(90deg,#176b78,#3d6d9c);color:white">BACKGROUND MUSIC: ${musicOn?'ON':'OFF'}</button><button id="settingsBack" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK TO MENU</button><div class="small">MUSIC IS ORIGINAL SYNTHESIZED AUDIO</div></div>`;
@@ -136,7 +136,7 @@ function showSettings(){
  document.getElementById('musicToggle').addEventListener('click',()=>{musicOn=!musicOn;try{localStorage.setItem('colordash-music',musicOn?'on':'off')}catch(e){}if(musicOn)startMusic();else stopMusic();showSettings()});
  document.getElementById('settingsBack').addEventListener('click',showTitle);
 }
-function showTitle(){
+function showTitle(){ overlay.classList.remove('settings-mode');
  overlay.innerHTML=`<div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><button id="settings" style="background:linear-gradient(90deg,#176b78,#3d6d9c);color:white;box-shadow:none">MUSIC & THEMES</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
  overlay.classList.remove('hidden');
  document.getElementById('start').addEventListener('click',reset);
@@ -147,7 +147,7 @@ function showTitle(){
 document.getElementById('shop').addEventListener('click',showShop);
 document.getElementById('achievements').addEventListener('click',showAchievements);
 document.getElementById('settings').addEventListener('click',showSettings);
-function reset(){score=0;level=1;speed=210;spawn=.6;coinSpawn=1.5;shieldSpawn=7;obstacles=[];coins=[];shields=[];particles=[];playerLane=1;hasShield=false;playing=true;last=performance.now();scoreEl.textContent='0';levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
+function reset(){ overlay.classList.remove('settings-mode');score=0;level=1;speed=210;spawn=.6;coinSpawn=1.5;shieldSpawn=7;obstacles=[];coins=[];shields=[];particles=[];playerLane=1;hasShield=false;playing=true;last=performance.now();scoreEl.textContent='0';levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
 function end(){playing=false;tone(120,.22,'sawtooth');best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-best',best)}catch(e){}overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1><p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p><button id="again">TRY AGAIN</button><button id="gameShop" style="background:linear-gradient(90deg,#ffd166,#ff9f43)">CHARACTER SHOP</button><button id="home" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">MAIN MENU</button><div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;overlay.classList.remove('hidden');document.getElementById('again').addEventListener('click',reset);document.getElementById('gameShop').addEventListener('click',showShop);document.getElementById('home').addEventListener('click',showTitle);}
 function tone(freq,duration=0.08,type='sine'){
  if(!soundOn)return;
