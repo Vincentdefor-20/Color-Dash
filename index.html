@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Color Dash</title>
 <style>
-:root{color-scheme:dark;--bg:#090d1d;--panel:#121a32;--cyan:#58f0ff;--pink:#ff4f9a;--gold:#ffd166}
+:root{color-scheme:dark;--bg:#090d1d;--panel:#121a32;--cyan:#58f0ff;--pink:#ff4f9a;--gold:#ffd166;--theme-top:#182449;--theme-bottom:#090d1d;--theme-accent:#58f0ff}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#fff;touch-action:manipulation}
-body{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top,#182449 0%,#090d1d 65%)}
-#wrap{position:relative;width:min(100vw,520px);height:min(100vh,900px);height:min(100dvh,900px);min-height:480px;overflow:hidden;background:linear-gradient(180deg,#111a37,#080b19);border:1px solid #26345d}
+body{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top,var(--theme-top) 0%,var(--theme-bottom) 75%)}
+#wrap{position:relative;width:min(100vw,520px);height:min(100vh,900px);height:min(100dvh,900px);min-height:480px;overflow:hidden;background:linear-gradient(180deg,var(--theme-top),var(--theme-bottom));border:1px solid #26345d}
 canvas{display:block;width:100%;height:100%}
 #hud{position:absolute;inset:0 0 auto;padding:18px 18px 0;display:flex;justify-content:space-between;pointer-events:none;text-shadow:0 2px 12px #000}
 .stat{font-size:12px;letter-spacing:2px;color:#aebee8}.num{font-size:26px;font-weight:900;letter-spacing:0;color:white}
@@ -22,30 +22,41 @@ button{border:0;border-radius:14px;padding:15px 22px;width:100%;margin-top:12px;
 button:active{transform:scale(.98)}.small{font-size:11px;color:#8494c1;margin-top:18px}
 .hidden{display:none!important}
 </style>
+
+<meta name="theme-color" content="#090d1d">
+<meta name="description" content="Dodge obstacles, collect coins, unlock neon characters, and chase achievements in Color Dash.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
 </head>
 <body>
 <div id="wrap">
 <canvas id="game" aria-label="Color Dash game"></canvas>
-<div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div><div class="stat" style="margin-top:8px">LEVEL <span id="level">1</span></div><div class="stat" style="margin-top:8px;color:#ffd166">COINS <span id="wallet">0</span></div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div><button id="pause" type="button" style="pointer-events:auto;width:auto;margin-top:8px;padding:7px 10px;font-size:11px;border-radius:10px">PAUSE</button><button id="sound" type="button" style="pointer-events:auto;width:auto;margin-top:6px;padding:7px 10px;font-size:11px;border-radius:10px">SOUND: ON</button></div></div>
+<div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div><div class="stat" style="margin-top:8px">LEVEL <span id="level">1</span></div><div class="stat" style="margin-top:8px;color:#ffd166">COINS <span id="wallet">0</span></div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div><button id="sound" type="button" style="pointer-events:auto;width:auto;margin-top:8px;padding:7px 10px;font-size:11px;border-radius:10px">SOUND: ON</button></div></div>
 <div id="hint">TAP LEFT OR RIGHT TO DODGE</div>
-<div id="overlay"><div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><button id="daily" style="background:linear-gradient(90deg,#58f0ff,#6c8cff);color:#08101f;box-shadow:none">DAILY CHALLENGE</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div></div>
+<div id="overlay"><div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><button id="settings" style="background:linear-gradient(90deg,#176b78,#3d6d9c);color:white;box-shadow:none">MUSIC & THEMES</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div></div>
 </div>
 <script>
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),levelEl=document.getElementById('level'),walletEl=document.getElementById('wallet'),soundBtn=document.getElementById('sound');
-let W=360,H=640,dpr=1,playing=false,paused=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,shieldSpawn=7,speed=210,playerLane=1,playerY=0,obstacles=[],coins=[],shields=[],particles=[],stars=[],level=1,hasShield=false,soundOn=true,audioCtx=null;
-const DAILY_TARGET=150,DAILY_REWARD=10;
-function localDayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function dailyClaimed(){try{return localStorage.getItem('colordash-daily-claimed')===localDayKey()}catch(e){return false}}
-function showDaily(){playing=false;paused=false;overlay.innerHTML=`<div class="card"><div class="kicker">A NEW GOAL EVERY DAY</div><h1>DAILY<br><span>CHALLENGE</span></h1><p>Score <strong style="color:#58f0ff">${DAILY_TARGET}</strong> points in a single run to earn <strong style="color:#ffd166">${DAILY_REWARD} bonus coins</strong>.</p><p>${dailyClaimed()?'You have already claimed today’s reward. Come back tomorrow!':'Complete the challenge and the reward will be added when your run ends.'}</p><button id="dailyback" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK TO MENU</button><div class="small">One reward per day on this device.</div></div>`;overlay.classList.remove('hidden');document.getElementById('dailyback').addEventListener('click',showTitle)}
-function togglePause(){if(!playing)return;if(!paused){paused=true;document.getElementById('pause').textContent='PAUSED';overlay.innerHTML=`<div class="card"><div class="kicker">TAKE A BREATHER</div><h1>GAME<br><span>PAUSED</span></h1><p>Your run is waiting. Ready when you are.</p><button id="resume">RESUME</button><button id="quitrun" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">END RUN</button></div>`;overlay.classList.remove('hidden');document.getElementById('resume').addEventListener('click',()=>{paused=false;document.getElementById('pause').textContent='PAUSE';last=performance.now();overlay.classList.add('hidden')});document.getElementById('quitrun').addEventListener('click',()=>{paused=false;document.getElementById('pause').textContent='PAUSE';end()})}else{paused=false;document.getElementById('pause').textContent='PAUSE';overlay.classList.add('hidden');last=performance.now()}}
-
+let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,shieldSpawn=7,speed=210,playerLane=1,playerY=0,obstacles=[],coins=[],shields=[],particles=[],stars=[],level=1,hasShield=false,soundOn=true,audioCtx=null,musicOn=false,musicTimer=null,musicStep=0,activeTheme='neon';
+const themes={neon:{name:'Neon Night',top:'#182449',bottom:'#090d1d',accent:'#58f0ff',lane:'#253458'},sunset:{name:'Sunset Pop',top:'#55264e',bottom:'#180f2b',accent:'#ff9d68',lane:'#754166'},forest:{name:'Cyber Forest',top:'#123c37',bottom:'#061a20',accent:'#5dffb1',lane:'#23564b'},ocean:{name:'Deep Ocean',top:'#103b66',bottom:'#061326',accent:'#69baff',lane:'#24527c'}};
+try{activeTheme=localStorage.getItem('colordash-theme')||'neon';musicOn=localStorage.getItem('colordash-music')==='on'}catch(e){}
+function applyTheme(id){activeTheme=themes[id]?id:'neon';const t=themes[activeTheme];document.documentElement.style.setProperty('--theme-top',t.top);document.documentElement.style.setProperty('--theme-bottom',t.bottom);document.documentElement.style.setProperty('--theme-accent',t.accent);document.documentElement.style.setProperty('--cyan',t.accent);try{localStorage.setItem('colordash-theme',activeTheme)}catch(e){}}
+applyTheme(activeTheme);
 const skins=[
- {id:'cyan',name:'Neon Cyan',color:'#58f0ff',price:0,desc:'The classic look'},
- {id:'pink',name:'Hot Pink',color:'#ff4f9a',price:10,desc:'Bright and bold'},
- {id:'gold',name:'Gold Rush',color:'#ffd166',price:20,desc:'Shine on the track'},
- {id:'purple',name:'Galaxy Purple',color:'#b18cff',price:30,desc:'A cosmic glow'}
+ {id:'cyan',name:'Neon Cyan',color:'#58f0ff',price:0,desc:'The classic look',shape:'square'},
+ {id:'pink',name:'Hot Pink',color:'#ff4f9a',price:10,desc:'Bright and bold',shape:'square'},
+ {id:'gold',name:'Gold Rush',color:'#ffd166',price:20,desc:'Shine on the track',shape:'diamond'},
+ {id:'purple',name:'Galaxy Purple',color:'#b18cff',price:30,desc:'A cosmic glow',shape:'circle'},
+ {id:'mint',name:'Mint Rush',color:'#5dffb1',price:15,desc:'Fresh mint energy',shape:'hex'},
+ {id:'flame',name:'Flame Runner',color:'#ff713d',price:40,desc:'Burn through the track',shape:'diamond'},
+ {id:'electric',name:'Electric Blue',color:'#4b8dff',price:55,desc:'Charged with power',shape:'hex'},
+ {id:'rainbow',name:'Rainbow Pulse',color:'#ff6be8',price:80,desc:'A bright star-shaped look',shape:'star'},
+ {id:'shadow',name:'Shadow Ninja',color:'#a4b0c8',unlockBest:250,desc:'Reach a best score of 250',shape:'diamond'},
+ {id:'prism',name:'Prism Star',color:'#f5f7ff',unlockBest:500,desc:'Reach a best score of 500',shape:'star'}
 ];
 let wallet=0,owned=['cyan'],activeSkin='cyan';
 try{wallet=Number(localStorage.getItem('colordash-coins')||0);owned=JSON.parse(localStorage.getItem('colordash-owned')||'["cyan"]');activeSkin=localStorage.getItem('colordash-skin')||'cyan';if(!Array.isArray(owned))owned=['cyan'];if(!owned.includes('cyan'))owned.push('cyan')}catch(e){}
@@ -77,12 +88,21 @@ function showShop(){
  const list=document.getElementById('skinlist');
  skins.forEach(s=>{
    const isOwned=owned.includes(s.id),isActive=activeSkin===s.id;
+   const scoreLocked=!!s.unlockBest && best<s.unlockBest;
    const b=document.createElement('button');
-   b.style.cssText=`margin:0;padding:12px 8px;background:linear-gradient(145deg,#17213d,#0b1024);border:1px solid ${s.color};box-shadow:none;color:white;font-size:12px;letter-spacing:0`;
-   b.innerHTML=`<span style="display:block;width:26px;height:26px;border-radius:8px;background:${s.color};box-shadow:0 0 16px ${s.color};margin:0 auto 8px"></span><strong>${s.name}</strong><br><span style="display:block;margin-top:5px;color:#b7c4e8">${isActive?'EQUIPPED':isOwned?'OWNED':s.price+' COINS'}</span>`;
+   b.style.cssText=`margin:0;padding:12px 8px;background:linear-gradient(145deg,#17213d,#0b1024);border:1px solid ${s.color};box-shadow:none;color:white;font-size:12px;letter-spacing:0;min-height:112px`;
+   const previewShape=s.shape==='circle'?'50%':s.shape==='diamond'?'5px':s.shape==='hex'?'10px':'8px';
+   const previewTransform=s.shape==='diamond'?'rotate(45deg)':'none';
+   const status=isActive?'EQUIPPED':isOwned?'OWNED':s.unlockBest?(scoreLocked?`BEST ${s.unlockBest} TO UNLOCK`:'UNLOCK FREE'):s.price===0?'FREE':`${s.price} COINS`;
+   b.innerHTML=`<span style="display:block;width:26px;height:26px;border-radius:${previewShape};transform:${previewTransform};background:${s.color};box-shadow:0 0 16px ${s.color};margin:0 auto 8px"></span><strong>${s.name}</strong><br><small style="display:block;color:#9eafd4;margin:4px 0 2px">${s.desc}</small><span style="display:block;margin-top:5px;color:${scoreLocked?'#ff9dbe':'#b7c4e8'}">${status}</span>`;
    b.addEventListener('click',()=>{
      if(isOwned){activeSkin=s.id;saveShop();showShop();tone(600,.06);return}
-     if(wallet>=s.price){wallet-=s.price;owned.push(s.id);activeSkin=s.id;saveShop();showShop();tone(800,.1)}
+     if(s.unlockBest){
+       if(best>=s.unlockBest){owned.push(s.id);activeSkin=s.id;saveShop();showShop();tone(800,.1)}
+       else {const p=overlay.querySelector('.card p');p.innerHTML=`Reach a best score of <strong style="color:#ffd166">${s.unlockBest}</strong> to unlock ${s.name}. Your best is ${best}.`}
+       return;
+     }
+     if(wallet>=s.price){wallet-=s.price;owned.push(s.id);activeSkin=s.id;saveShop();tone(800,.1);showShop()}
      else {const p=overlay.querySelector('.card p');p.innerHTML=`You need <strong style="color:#ffd166">${s.price-wallet} more coins</strong> to unlock ${s.name}. Play a run and collect coins!`}
    });
    list.appendChild(b);
@@ -97,7 +117,9 @@ function showAchievements(){
   {name:'Century Club',desc:'Reach 100 points in a run',done:bestScore>=100,icon:'💯'},
   {name:'Coin Collector',desc:'Save up 25 coins',done:wallet>=25,icon:'🪙'},
   {name:'Fashion Dash',desc:'Unlock a character skin',done:owned.length>=2,icon:'🎨'},
-  {name:'Style Master',desc:'Own all four skins',done:owned.length>=4,icon:'🏆'}
+  {name:'Style Master',desc:'Collect all 10 character skins',done:skins.every(s=>owned.includes(s.id)),icon:'🏆'},
+  {name:'Shadow Runner',desc:'Reach a best score of 250',done:bestScore>=250,icon:'🥷'},
+  {name:'Prism Legend',desc:'Reach a best score of 500',done:bestScore>=500,icon:'🌟'}
  ];
  overlay.innerHTML=`<div class="card"><div class="kicker">YOUR PROGRESS</div><h1 style="font-size:36px">ACHIEVE<br><span>MORE</span></h1><p>Complete challenges as you play. Progress is saved on this device.</p><div id="achievementlist" style="display:grid;gap:9px;text-align:left;margin:14px 0"></div><button id="achback" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK</button></div>`;
  overlay.classList.remove('hidden');
@@ -105,35 +127,47 @@ function showAchievements(){
  items.forEach(a=>{const row=document.createElement('div');row.style.cssText=`display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:${a.done?'#183044':'#11182d'};border:1px solid ${a.done?'#58f0ff':'#293553'};opacity:${a.done?1:.72}`;row.innerHTML=`<span style="font-size:24px">${a.done?'✅':a.icon}</span><span style="flex:1"><strong style="display:block;font-size:13px">${a.name}</strong><small style="color:#b7c4e8">${a.desc}</small></span><strong style="color:${a.done?'#58f0ff':'#8290b5'}">${a.done?'DONE':'LOCKED'}</strong>`;list.appendChild(row)});
  document.getElementById('achback').addEventListener('click',showTitle);
 }
+function showSettings(){
+ playing=false;
+ const themeButtons=Object.keys(themes).map(id=>`<button data-theme="${id}" style="background:${themes[id].top};border:2px solid ${activeTheme===id?themes[id].accent:'#33456f'};color:white;box-shadow:none;margin:4px 0">${activeTheme===id?'✓ ':''}${themes[id].name}</button>`).join('');
+ overlay.innerHTML=`<div class="card"><div class="kicker">MAKE IT YOURS</div><h1 style="font-size:34px">MUSIC &<br><span>THEMES</span></h1><p>Choose a colour mood and turn on an original, computer-generated arcade melody. No music files or outside tracks are used.</p><div style="text-align:left;font-size:12px;letter-spacing:2px;color:#aebee8;margin:16px 0 8px">COLOUR THEME</div>${themeButtons}<button id="musicToggle" style="background:linear-gradient(90deg,#176b78,#3d6d9c);color:white">BACKGROUND MUSIC: ${musicOn?'ON':'OFF'}</button><button id="settingsBack" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">BACK TO MENU</button><div class="small">MUSIC IS ORIGINAL SYNTHESIZED AUDIO</div></div>`;
+ overlay.classList.remove('hidden');
+ overlay.querySelectorAll('[data-theme]').forEach(b=>b.addEventListener('click',()=>{applyTheme(b.dataset.theme);showSettings()}));
+ document.getElementById('musicToggle').addEventListener('click',()=>{musicOn=!musicOn;try{localStorage.setItem('colordash-music',musicOn?'on':'off')}catch(e){}if(musicOn)startMusic();else stopMusic();showSettings()});
+ document.getElementById('settingsBack').addEventListener('click',showTitle);
+}
 function showTitle(){
- overlay.innerHTML=`<div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><button id="daily" style="background:linear-gradient(90deg,#58f0ff,#6c8cff);color:#08101f;box-shadow:none">DAILY CHALLENGE</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
+ overlay.innerHTML=`<div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge pink blocks, collect golden coins, and grab cyan shields. Every 100 points brings a new level!</p><button id="start">PLAY NOW</button><button id="shop" style="background:linear-gradient(90deg,#ffd166,#ff9f43);box-shadow:0 8px 28px #ffd16622">CHARACTER SHOP</button><button id="achievements" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">ACHIEVEMENTS</button><button id="settings" style="background:linear-gradient(90deg,#176b78,#3d6d9c);color:white;box-shadow:none">MUSIC & THEMES</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
  overlay.classList.remove('hidden');
  document.getElementById('start').addEventListener('click',reset);
  document.getElementById('shop').addEventListener('click',showShop);
  document.getElementById('achievements').addEventListener('click',showAchievements);
- document.getElementById('daily').addEventListener('click',showDaily);
+ document.getElementById('settings').addEventListener('click',showSettings);
 }
 document.getElementById('shop').addEventListener('click',showShop);
 document.getElementById('achievements').addEventListener('click',showAchievements);
-document.getElementById('daily').addEventListener('click',showDaily);
-document.getElementById('pause').addEventListener('click',togglePause);
-function reset(){paused=false;document.getElementById('pause').textContent='PAUSE';score=0;level=1;speed=210;spawn=.6;coinSpawn=1.5;shieldSpawn=7;obstacles=[];coins=[];shields=[];particles=[];playerLane=1;hasShield=false;playing=true;last=performance.now();scoreEl.textContent='0';levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
-function end(){playing=false;paused=false;document.getElementById('pause').textContent='PAUSE';tone(120,.22,'sawtooth');
- if(score>=DAILY_TARGET&&!dailyClaimed()){wallet+=DAILY_REWARD;saveShop();try{localStorage.setItem('colordash-daily-claimed',localDayKey())}catch(e){}}
- best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-best',best)}catch(e){}overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1><p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.<br>${score>=DAILY_TARGET?"Daily challenge completed! Check your coins for any earned reward.":"Reach "+DAILY_TARGET+" points in one run for today’s bonus."}</p><button id="again">TRY AGAIN</button><button id="gameShop" style="background:linear-gradient(90deg,#ffd166,#ff9f43)">CHARACTER SHOP</button><button id="home" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">MAIN MENU</button><div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;overlay.classList.remove('hidden');document.getElementById('again').addEventListener('click',reset);document.getElementById('gameShop').addEventListener('click',showShop);document.getElementById('home').addEventListener('click',showTitle);}
+document.getElementById('settings').addEventListener('click',showSettings);
+function reset(){score=0;level=1;speed=210;spawn=.6;coinSpawn=1.5;shieldSpawn=7;obstacles=[];coins=[];shields=[];particles=[];playerLane=1;hasShield=false;playing=true;last=performance.now();scoreEl.textContent='0';levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
+function end(){playing=false;tone(120,.22,'sawtooth');best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-best',best)}catch(e){}overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1><p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p><button id="again">TRY AGAIN</button><button id="gameShop" style="background:linear-gradient(90deg,#ffd166,#ff9f43)">CHARACTER SHOP</button><button id="home" style="background:linear-gradient(90deg,#263858,#41557d);color:white;box-shadow:none">MAIN MENU</button><div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;overlay.classList.remove('hidden');document.getElementById('again').addEventListener('click',reset);document.getElementById('gameShop').addEventListener('click',showShop);document.getElementById('home').addEventListener('click',showTitle);}
 function tone(freq,duration=0.08,type='sine'){
  if(!soundOn)return;
  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
  const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type=type;osc.frequency.value=freq;gain.gain.setValueAtTime(.055,audioCtx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);osc.connect(gain);gain.connect(audioCtx.destination);osc.start();osc.stop(audioCtx.currentTime+duration);
  }catch(e){}
 }
+function startMusic(){
+ try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();if(musicTimer)clearInterval(musicTimer);musicStep=0;const notes=[523.25,659.25,783.99,659.25,587.33,698.46,880,698.46,523.25,659.25,783.99,1046.5,880,783.99,659.25,587.33];musicTimer=setInterval(()=>{if(!musicOn||!audioCtx)return;const now=audioCtx.currentTime;const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();osc.type='sine';osc.frequency.setValueAtTime(notes[musicStep%notes.length],now);gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(.035,now+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+.22);osc.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+.23);musicStep++},260);
+ }catch(e){musicOn=false}
+}
+function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null}}
+if(musicOn){musicOn=false;try{localStorage.setItem('colordash-music','off')}catch(e){}}
 soundBtn.addEventListener('click',()=>{soundOn=!soundOn;soundBtn.textContent='SOUND: '+(soundOn?'ON':'OFF');if(soundOn)tone(660,.07)});
 function move(dir){if(!playing)return;playerLane=Math.max(0,Math.min(2,playerLane+dir));tone(330,.035,'triangle');}
 canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();move(e.clientX-r.left<r.width/2?-1:1)});
 window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if((e.key===' '||e.key==='Enter')&&!playing)reset()});
 startBtn.addEventListener('click',reset);
 function burst(x,y,color){for(let i=0;i<12;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.5,color})}
-function update(dt){if(!playing||paused)return;score+=Math.floor(dt*10);speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
+function update(dt){if(!playing)return;score+=Math.floor(dt*10);speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
 level=1+Math.floor(score/100);levelEl.textContent=String(level);speed=210+Math.min((level-1)*28,210);
 spawn-=dt;if(spawn<=0){obstacles.push({lane:Math.floor(Math.random()*3),y:-40,size:24+Math.random()*10});spawn=Math.max(.34,1.0-score*.002)+Math.random()*.28}
 coinSpawn-=dt;if(coinSpawn<=0){coins.push({lane:Math.floor(Math.random()*3),y:-20,r:8});coinSpawn=1.4+Math.random()*1.3}
@@ -146,20 +180,30 @@ coins=coins.filter(c=>{if(c.lane===playerLane&&Math.abs(c.y-py)<27){score+=25;wa
 shields=shields.filter(sh=>{if(sh.lane===playerLane&&Math.abs(sh.y-py)<30){hasShield=true;burst(laneX(sh.lane),sh.y,'#58f0ff');tone(740,.13);document.getElementById('hint').textContent='SHIELD READY — ONE FREE HIT!';return false}return sh.y<H+30});
 particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;return p.life>0});
 }
-function draw(){ctx.clearRect(0,0,W,H);const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#111a37');g.addColorStop(1,'#080b19');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+function draw(){ctx.clearRect(0,0,W,H);const t=themes[activeTheme]||themes.neon;const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,t.top);g.addColorStop(1,t.bottom);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
 for(const s of stars){ctx.globalAlpha=s.a;ctx.fillStyle='#b9d7ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
-ctx.strokeStyle='#253458';ctx.lineWidth=1;for(let l=0;l<3;l++){ctx.beginPath();ctx.moveTo(laneX(l),0);ctx.lineTo(laneX(l),H);ctx.stroke()}
-ctx.strokeStyle='#253458';ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.35,0);ctx.lineTo(W*.35,H);ctx.moveTo(W*.65,0);ctx.lineTo(W*.65,H);ctx.stroke();ctx.setLineDash([]);
+ctx.strokeStyle=t.lane;ctx.lineWidth=1;for(let l=0;l<3;l++){ctx.beginPath();ctx.moveTo(laneX(l),0);ctx.lineTo(laneX(l),H);ctx.stroke()}
+ctx.strokeStyle=t.lane;ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.35,0);ctx.lineTo(W*.35,H);ctx.moveTo(W*.65,0);ctx.lineTo(W*.65,H);ctx.stroke();ctx.setLineDash([]);
 for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=18;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
 for(const sh of shields){const sx=laneX(sh.lane);ctx.shadowBlur=20;ctx.shadowColor='#58f0ff';ctx.strokeStyle='#58f0ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sh.y,sh.r,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#bdfaff';ctx.fillRect(sx-3,sh.y-6,6,12);ctx.shadowBlur=0}
 for(const c of coins){ctx.shadowBlur=18;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
-const x=laneX(playerLane),y=playerY;if(hasShield){ctx.strokeStyle='#58f0ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,25,0,Math.PI*2);ctx.stroke()}ctx.shadowBlur=25;ctx.shadowColor=playerColor();ctx.fillStyle=playerColor();roundRect(x-15,y-15,30,30,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff';ctx.lineWidth=2;roundRect(x-10,y-10,20,20,6);ctx.stroke();
+const x=laneX(playerLane),y=playerY;if(hasShield){ctx.strokeStyle='#58f0ff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,25,0,Math.PI*2);ctx.stroke()}
+const skin=skins.find(s=>s.id===activeSkin)||skins[0];
+function characterPath(radius){ctx.beginPath();if(skin.shape==='circle'){ctx.arc(x,y,radius,0,Math.PI*2)}else if(skin.shape==='diamond'){ctx.moveTo(x,y-radius);ctx.lineTo(x+radius,y);ctx.lineTo(x,y+radius);ctx.lineTo(x-radius,y);ctx.closePath()}else if(skin.shape==='hex'){for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/6,px=x+Math.cos(a)*radius,py=y+Math.sin(a)*radius;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath()}else if(skin.shape==='star'){for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2===0?radius:radius*.48,px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath()}else{roundRect(x-radius,y-radius,radius*2,radius*2,radius*.3);return} }
+ctx.shadowBlur=25;ctx.shadowColor=playerColor();ctx.fillStyle=playerColor();characterPath(15);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffffff';ctx.lineWidth=2;characterPath(10);ctx.stroke();
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}ctx.globalAlpha=1;
-if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle='#58f0ff';ctx.fillRect(0,H-4,W*prog,4)}
+if(playing){const prog=Math.min(score/250,1);ctx.fillStyle=t.lane;ctx.fillRect(0,H-4,W,4);ctx.fillStyle=t.accent;ctx.fillRect(0,H-4,W*prog,4)}
 }
 function loop(t){const dt=Math.min(Math.max((t-last)/1000||0,0),.04);last=t;try{update(dt);draw()}catch(err){console.error('Color Dash frame error:',err)}requestAnimationFrame(loop)}
 last=performance.now();requestAnimationFrame(loop);
 })();
 </script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
+
 </body>
 </html>
