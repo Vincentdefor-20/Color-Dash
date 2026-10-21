@@ -58,15 +58,15 @@ button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;bo
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best');
-let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,speed=210,playerLane=1,playerY=0,obstacles=[],coins=[],particles=[],stars=[],survivalRemainder=0;
+let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,speed=210,playerLane=1,playerX=0,playerY=0,playerTilt=0,animTime=0,trailTimer=0,obstacles=[],coins=[],particles=[],playerTrail=[],stars=[],survivalRemainder=0;
 let glowEnabled=true;
 try{best=Number(localStorage.getItem('colordash-best')||0)}catch(e){}bestEl.textContent=best;
 const menuBestEl=document.getElementById('menuBest');if(menuBestEl)menuBestEl.textContent=best;
-function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
+function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;if(!playerX)playerX=laneX(playerLane);stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
 window.addEventListener('resize',resize);resize();
 function laneX(l){return W*(.2+l*.3)}
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
-function reset(){score=0;survivalRemainder=0;speed=210;spawn=.6;coinSpawn=1.5;obstacles=[];coins=[];particles=[];playerLane=1;playing=true;last=performance.now();scoreEl.textContent='0';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
+function reset(){score=0;survivalRemainder=0;speed=210;spawn=.6;coinSpawn=1.5;obstacles=[];coins=[];particles=[];playerTrail=[];playerLane=1;playerX=laneX(1);playerTilt=0;trailTimer=0;playing=true;last=performance.now();scoreEl.textContent='0';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
 function showMainMenu(){
  playing=false;
  overlay.innerHTML=`<div class="card">
@@ -126,15 +126,17 @@ startBtn.addEventListener('click',reset);
 document.getElementById('howToPlay').addEventListener('click',showHowToPlay);
 document.getElementById('settings').addEventListener('click',showSettings);
 function burst(x,y,color){for(let i=0;i<12;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.5,color})}
-function update(dt){if(!playing)return;survivalRemainder+=dt*10;const earned=Math.floor(survivalRemainder);if(earned>0){score+=earned;survivalRemainder-=earned;}speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
+function update(dt){animTime+=dt;if(!playing)return;survivalRemainder+=dt*10;const earned=Math.floor(survivalRemainder);if(earned>0){score+=earned;survivalRemainder-=earned;}speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
 spawn-=dt;if(spawn<=0){obstacles.push({lane:Math.floor(Math.random()*3),y:-40,size:24+Math.random()*10});spawn=Math.max(.34,1.0-score*.002)+Math.random()*.28}
 coinSpawn-=dt;if(coinSpawn<=0){coins.push({lane:Math.floor(Math.random()*3),y:-20,r:8});coinSpawn=1.4+Math.random()*1.3}
 for(const o of obstacles)o.y+=speed*dt;for(const c of coins)c.y+=speed*dt;
-const px=laneX(playerLane),py=playerY;
-for(const o of obstacles){if(o.lane===playerLane&&Math.abs(o.y-py)<27){burst(px,py,'#ff4f9a');end();return}}
+const targetX=laneX(playerLane),oldX=playerX;playerX+=(targetX-playerX)*(1-Math.exp(-dt*16));playerTilt=Math.max(-.28,Math.min(.28,(playerX-oldX)*-.012));const px=playerX,py=playerY;
+trailTimer-=dt;if(Math.abs(targetX-playerX)>1.5&&trailTimer<=0){playerTrail.push({x:px,y:py+13,life:.28,max:.28,r:3+Math.random()*3});trailTimer=.025;}
+for(const o of obstacles){if(Math.abs(laneX(o.lane)-px)<18&&Math.abs(o.y-py)<27){burst(px,py,'#ff4f9a');end();return}}
 obstacles=obstacles.filter(o=>o.y<H+60);
-coins=coins.filter(c=>{if(c.lane===playerLane&&Math.abs(c.y-py)<27){score+=25;scoreEl.textContent=score;burst(laneX(c.lane),c.y,'#ffd166');return false}return c.y<H+30});
+coins=coins.filter(c=>{if(Math.abs(laneX(c.lane)-px)<19&&Math.abs(c.y-py)<27){score+=25;scoreEl.textContent=score;burst(laneX(c.lane),c.y,'#ffd166');return false}return c.y<H+30});
 particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;return p.life>0});
+playerTrail=playerTrail.filter(p=>{p.life-=dt;p.y+=dt*42;return p.life>0});
 }
 function draw(){ctx.clearRect(0,0,W,H);const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#111a37');g.addColorStop(1,'#080b19');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
 for(const s of stars){ctx.globalAlpha=s.a;ctx.fillStyle='#b9d7ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
@@ -142,7 +144,14 @@ ctx.strokeStyle='#253458';ctx.lineWidth=1;for(let l=0;l<3;l++){ctx.beginPath();c
 ctx.strokeStyle='#253458';ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.35,0);ctx.lineTo(W*.35,H);ctx.moveTo(W*.65,0);ctx.lineTo(W*.65,H);ctx.stroke();ctx.setLineDash([]);
 for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
 for(const c of coins){ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
-const x=laneX(playerLane),y=playerY;ctx.shadowBlur=glowEnabled?25:0;ctx.shadowColor='#58f0ff';ctx.fillStyle='#58f0ff';roundRect(x-15,y-15,30,30,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#d8fcff';ctx.lineWidth=2;roundRect(x-10,y-10,20,20,6);ctx.stroke();
+// Cyan movement trail fades behind the player.
+for(const t of playerTrail){ctx.globalAlpha=Math.max(0,t.life/t.max)*.65;ctx.fillStyle='#58f0ff';ctx.shadowBlur=glowEnabled?12:0;ctx.shadowColor='#58f0ff';ctx.beginPath();ctx.arc(t.x,t.y,t.r*(t.life/t.max),0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.shadowBlur=0;
+const x=playerX,y=playerY,pulse=1+Math.sin(animTime*7)*.045,body=15*pulse;
+ctx.save();ctx.translate(x,y);ctx.rotate(playerTilt);ctx.shadowBlur=glowEnabled?27:0;ctx.shadowColor='#58f0ff';
+// Short energy fins give the player a fast, futuristic silhouette.
+ctx.fillStyle='#58f0ff';ctx.globalAlpha=.8;ctx.beginPath();ctx.moveTo(-body*.55,8);ctx.lineTo(-body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(-body*.15,12);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(body*.55,8);ctx.lineTo(body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(body*.15,12);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+const pg=ctx.createLinearGradient(-body,-body,body,body);pg.addColorStop(0,'#d9ffff');pg.addColorStop(.35,'#58f0ff');pg.addColorStop(1,'#398bff');ctx.fillStyle=pg;roundRect(-body,-body,body*2,body*2,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#e8ffff';ctx.lineWidth=2;roundRect(-body*.67,-body*.67,body*1.34,body*1.34,6);ctx.stroke();
+ctx.fillStyle='#ffffff';ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(0,0,3.3+Math.sin(animTime*9)*.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;ctx.restore();
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}ctx.globalAlpha=1;
 if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle='#58f0ff';ctx.fillRect(0,H-4,W*prog,4)}
 requestAnimationFrame(loop)}
