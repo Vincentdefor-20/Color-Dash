@@ -20,6 +20,21 @@ h1{font-size:clamp(38px,10vw,56px);line-height:.95;margin:12px 0 14px;font-weigh
 h1 span{color:var(--cyan)}p{color:#b7c4e8;line-height:1.55;font-size:14px}
 button{border:0;border-radius:14px;padding:15px 22px;width:100%;margin-top:12px;background:linear-gradient(90deg,#58f0ff,#8e8cff);color:#071020;font-size:15px;font-weight:900;letter-spacing:1px;cursor:pointer;box-shadow:0 8px 28px #58f0ff35}
 button:active{transform:scale(.98)}.small{font-size:11px;color:#8494c1;margin-top:18px}
+.menu-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.menu-buttons button{margin-top:10px}
+button.secondary{background:linear-gradient(135deg,#25365f,#172443);color:#dce8ff;border:1px solid #405681;box-shadow:none}
+button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;box-shadow:none}
+.card{animation:cardIn .28s ease-out}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.menu-mark{display:flex;justify-content:center;gap:7px;margin:0 auto 18px}
+.menu-mark span{display:block;width:9px;height:27px;border-radius:8px;box-shadow:0 0 16px currentColor}
+.menu-mark span:nth-child(1){color:#58f0ff;background:#58f0ff}
+.menu-mark span:nth-child(2){color:#ff4f9a;background:#ff4f9a;transform:translateY(-5px)}
+.menu-mark span:nth-child(3){color:#ffd166;background:#ffd166}
+.menu-feature{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:15px}
+.menu-feature span{font-size:10px;letter-spacing:.5px;color:#c8d5f5;border:1px solid #34466e;background:#111b35;padding:6px 9px;border-radius:999px}
+.option-row{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:12px 0;border-bottom:1px solid #2a385c;color:#dce5ff;font-size:13px}
+.option-row button{width:auto;min-width:92px;margin:0;padding:10px 12px;font-size:12px}
 .hidden{display:none!important}
 </style>
 </head>
@@ -28,24 +43,88 @@ button:active{transform:scale(.98)}.small{font-size:11px;color:#8494c1;margin-to
 <canvas id="game" aria-label="Color Dash game"></canvas>
 <div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div></div></div>
 <div id="hint">TAP LEFT OR RIGHT TO DODGE</div>
-<div id="overlay"><div class="card"><div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1><p>Dodge the pink blocks. Collect golden sparks. Survive as long as you can and beat your best score.</p><button id="start">PLAY NOW</button><div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div></div>
+<div id="overlay"><div class="card">
+<div class="menu-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+<div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1>
+<p>Dodge the pink blocks. Collect golden sparks. Survive as long as you can and beat your best score.</p>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0 8px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">0</strong></div>
+<button id="start">PLAY NOW</button>
+<div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
+<div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
+<div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div>
+</div></div>
 </div>
 <script>
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best');
 let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,speed=210,playerLane=1,playerY=0,obstacles=[],coins=[],particles=[],stars=[],survivalRemainder=0;
+let glowEnabled=true;
 try{best=Number(localStorage.getItem('colordash-best')||0)}catch(e){}bestEl.textContent=best;
+const menuBestEl=document.getElementById('menuBest');if(menuBestEl)menuBestEl.textContent=best;
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
 window.addEventListener('resize',resize);resize();
 function laneX(l){return W*(.2+l*.3)}
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
 function reset(){score=0;survivalRemainder=0;speed=210;spawn=.6;coinSpawn=1.5;obstacles=[];coins=[];particles=[];playerLane=1;playing=true;last=performance.now();scoreEl.textContent='0';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
-function end(){playing=false;best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-best',best)}catch(e){}overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1><p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p><button id="again">TRY AGAIN</button><div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;overlay.classList.remove('hidden');document.getElementById('again').addEventListener('click',reset);}
+function showMainMenu(){
+ playing=false;
+ overlay.innerHTML=`<div class="card">
+ <div class="menu-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+ <div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1>
+ <p>Dodge the pink blocks. Collect golden sparks. Survive as long as you can and beat your best score.</p>
+ <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0 8px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">${best}</strong></div>
+ <button id="start">PLAY NOW</button>
+ <div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
+ <div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
+ <div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
+ overlay.classList.remove('hidden');
+ document.getElementById('start').addEventListener('click',reset);
+ document.getElementById('howToPlay').addEventListener('click',showHowToPlay);
+ document.getElementById('settings').addEventListener('click',showSettings);
+}
+function showHowToPlay(){
+ overlay.innerHTML=`<div class="card"><div class="kicker">QUICK GUIDE</div><h1 style="font-size:38px">HOW TO<br><span>PLAY</span></h1>
+ <p>Stay alive for as long as you can. Watch the lanes and react quickly.</p>
+ <div class="option-row"><span>Move left</span><strong style="color:#58f0ff">← / A</strong></div>
+ <div class="option-row"><span>Move right</span><strong style="color:#58f0ff">→ / D</strong></div>
+ <div class="option-row"><span>Dodge</span><strong style="color:#ff4f9a">PINK BLOCKS</strong></div>
+ <div class="option-row"><span>Collect</span><strong style="color:#ffd166">+25 POINTS</strong></div>
+ <p class="small">On touch screens, tap the left or right half of the game area.</p>
+ <button id="guidePlay">LET'S PLAY</button><button class="tertiary" id="guideBack">BACK TO MENU</button></div>`;
+ overlay.classList.remove('hidden');
+ document.getElementById('guidePlay').addEventListener('click',reset);
+ document.getElementById('guideBack').addEventListener('click',showMainMenu);
+}
+function showSettings(){
+ overlay.innerHTML=`<div class="card"><div class="kicker">MAKE IT YOURS</div><h1 style="font-size:38px">GAME<br><span>SETTINGS</span></h1>
+ <p>Adjust the visual effects or clear your saved best score.</p>
+ <div class="option-row"><span>Glow effects</span><button class="secondary" id="glowToggle">${glowEnabled?'ON':'OFF'}</button></div>
+ <div class="option-row"><span>Best score</span><strong style="color:#58f0ff">${best}</strong></div>
+ <button class="tertiary" id="clearBest">RESET BEST SCORE</button>
+ <button id="settingsBack">BACK TO MENU</button></div>`;
+ overlay.classList.remove('hidden');
+ document.getElementById('glowToggle').addEventListener('click',()=>{glowEnabled=!glowEnabled;showSettings();});
+ document.getElementById('clearBest').addEventListener('click',()=>{best=0;bestEl.textContent='0';try{localStorage.setItem('colordash-best','0')}catch(e){}showSettings();});
+ document.getElementById('settingsBack').addEventListener('click',showMainMenu);
+}
+function end(){
+ playing=false;best=Math.max(best,score);bestEl.textContent=best;
+ try{localStorage.setItem('colordash-best',best)}catch(e){}
+ overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1>
+ <p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p>
+ <button id="again">TRY AGAIN</button><button class="secondary" id="gameMenu">MAIN MENU</button>
+ <div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;
+ overlay.classList.remove('hidden');
+ document.getElementById('again').addEventListener('click',reset);
+ document.getElementById('gameMenu').addEventListener('click',showMainMenu);
+}
 function move(dir){if(!playing)return;playerLane=Math.max(0,Math.min(2,playerLane+dir));}
 canvas.addEventListener('pointerdown',e=>{const r=canvas.getBoundingClientRect();move(e.clientX-r.left<r.width/2?-1:1)});
 window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if((e.key===' '||e.key==='Enter')&&!playing)reset()});
 startBtn.addEventListener('click',reset);
+document.getElementById('howToPlay').addEventListener('click',showHowToPlay);
+document.getElementById('settings').addEventListener('click',showSettings);
 function burst(x,y,color){for(let i=0;i<12;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.5,color})}
 function update(dt){if(!playing)return;survivalRemainder+=dt*10;const earned=Math.floor(survivalRemainder);if(earned>0){score+=earned;survivalRemainder-=earned;}speed=210+Math.min(score*1.4,230);scoreEl.textContent=score;
 spawn-=dt;if(spawn<=0){obstacles.push({lane:Math.floor(Math.random()*3),y:-40,size:24+Math.random()*10});spawn=Math.max(.34,1.0-score*.002)+Math.random()*.28}
@@ -61,9 +140,9 @@ function draw(){ctx.clearRect(0,0,W,H);const g=ctx.createLinearGradient(0,0,0,H)
 for(const s of stars){ctx.globalAlpha=s.a;ctx.fillStyle='#b9d7ff';ctx.fillRect(s.x,s.y,s.s,s.s)}ctx.globalAlpha=1;
 ctx.strokeStyle='#253458';ctx.lineWidth=1;for(let l=0;l<3;l++){ctx.beginPath();ctx.moveTo(laneX(l),0);ctx.lineTo(laneX(l),H);ctx.stroke()}
 ctx.strokeStyle='#253458';ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.35,0);ctx.lineTo(W*.35,H);ctx.moveTo(W*.65,0);ctx.lineTo(W*.65,H);ctx.stroke();ctx.setLineDash([]);
-for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=18;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
-for(const c of coins){ctx.shadowBlur=18;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
-const x=laneX(playerLane),y=playerY;ctx.shadowBlur=25;ctx.shadowColor='#58f0ff';ctx.fillStyle='#58f0ff';roundRect(x-15,y-15,30,30,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#d8fcff';ctx.lineWidth=2;roundRect(x-10,y-10,20,20,6);ctx.stroke();
+for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
+for(const c of coins){ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
+const x=laneX(playerLane),y=playerY;ctx.shadowBlur=glowEnabled?25:0;ctx.shadowColor='#58f0ff';ctx.fillStyle='#58f0ff';roundRect(x-15,y-15,30,30,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#d8fcff';ctx.lineWidth=2;roundRect(x-10,y-10,20,20,6);ctx.stroke();
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}ctx.globalAlpha=1;
 if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle='#58f0ff';ctx.fillRect(0,H-4,W*prog,4)}
 requestAnimationFrame(loop)}
