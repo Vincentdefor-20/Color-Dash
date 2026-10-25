@@ -35,7 +35,7 @@ button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;bo
 .menu-feature span{font-size:10px;letter-spacing:.5px;color:#c8d5f5;border:1px solid #34466e;background:#111b35;padding:6px 9px;border-radius:999px}
 .option-row{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:12px 0;border-bottom:1px solid #2a385c;color:#dce5ff;font-size:13px}
 .option-row button{width:auto;min-width:92px;margin:0;padding:10px 12px;font-size:12px}
-.hidden{display:none!important}
+.skin-preview{width:30px;height:30px;border-radius:8px;box-shadow:0 0 16px currentColor;display:inline-block;vertical-align:middle;margin-right:8px}.skin-row{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;padding:10px 0;border-bottom:1px solid #2a385c;color:#dce5ff;font-size:13px}.skin-row button{width:auto;min-width:100px;margin:0;padding:10px 12px;font-size:11px}.hidden{display:none!important}
 </style>
 </head>
 <body>
@@ -51,6 +51,7 @@ button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;bo
 <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 8px"><span class="stat">🟡 TOTAL COINS</span><strong style="font-size:23px;color:#ffd166">${totalCoins}</strong></div>
 <button id="start">PLAY NOW</button>
 <div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
+<button class="secondary" id="skinShop">SKIN SHOP</button>
 <div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
 <div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div>
 </div></div>
@@ -61,6 +62,9 @@ const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay
 const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),levelEl=document.getElementById('levelNum'),coinTotalEl=document.getElementById('coinTotal');
 let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,speed=210,playerLane=1,playerX=0,playerY=0,playerTilt=0,animTime=0,trailTimer=0,obstacles=[],coins=[],particles=[],playerTrail=[],stars=[],survivalRemainder=0;
 let glowEnabled=true,level=1,lastObstacleLane=-1,totalCoins=0,runCoins=0;
+const skins=[{id:'cyan',name:'Cyan Classic',color:'#58f0ff',cost:0,light:'#d9ffff',dark:'#398bff'},{id:'pink',name:'Hot Pink',color:'#ff4f9a',cost:25,light:'#ffd0e5',dark:'#b62469'},{id:'gold',name:'Gold Rush',color:'#ffd166',cost:50,light:'#fff0b0',dark:'#d18a20'},{id:'violet',name:'Violet Flux',color:'#ad7bff',cost:100,light:'#eadbff',dark:'#6736d8'}];
+let ownedSkins=['cyan'],selectedSkin='cyan';
+try{const savedOwned=JSON.parse(localStorage.getItem('colordash-owned-skins')||'[\"cyan\"]');if(Array.isArray(savedOwned))ownedSkins=Array.from(new Set(['cyan',...savedOwned.filter(id=>skins.some(sk=>sk.id===id))]));const savedSkin=localStorage.getItem('colordash-selected-skin');if(ownedSkins.includes(savedSkin))selectedSkin=savedSkin;}catch(e){}
 try{best=Number(localStorage.getItem('colordash-best')||0);totalCoins=Number(localStorage.getItem('colordash-coins')||0)}catch(e){}bestEl.textContent=best;if(coinTotalEl)coinTotalEl.textContent=totalCoins;
 const menuBestEl=document.getElementById('menuBest');if(menuBestEl)menuBestEl.textContent=best;
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;if(!playerX)playerX=laneX(playerLane);stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
@@ -78,12 +82,22 @@ function showMainMenu(){
  <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 8px"><span class="stat">🟡 TOTAL COINS</span><strong style="font-size:23px;color:#ffd166">${totalCoins}</strong></div>
  <button id="start">PLAY NOW</button>
  <div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
+ <button class="secondary" id="skinShop">SKIN SHOP</button>
  <div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
  <div class="small">FREE TO PLAY · NO DOWNLOAD NEEDED</div></div>`;
  overlay.classList.remove('hidden');
  document.getElementById('start').addEventListener('click',reset);
  document.getElementById('howToPlay').addEventListener('click',showHowToPlay);
  document.getElementById('settings').addEventListener('click',showSettings);
+}
+function saveSkins(){try{localStorage.setItem('colordash-owned-skins',JSON.stringify(ownedSkins));localStorage.setItem('colordash-selected-skin',selectedSkin)}catch(e){}}
+function showSkinShop(){
+ playing=false;
+ const rows=skins.map(sk=>{const owned=ownedSkins.includes(sk.id),selected=selectedSkin===sk.id;const action=selected?'EQUIPPED':owned?'EQUIP':`BUY · ${sk.cost} COINS`;return `<div class="skin-row"><div><span class="skin-preview" style="background:${sk.color};color:${sk.color}"></span><strong>${sk.name}</strong><div class="small" style="margin:4px 0 0 40px">${sk.cost===0?'FREE':sk.cost+' coins'}</div></div><button class="${selected||!owned?'secondary':''}" data-skin="${sk.id}" ${selected?'disabled':''}>${action}</button></div>`}).join('');
+ overlay.innerHTML=`<div class="card"><div class="kicker">MAKE IT YOURS</div><h1 style="font-size:38px">SKIN<br><span>SHOP</span></h1><p>Coins: <strong style="color:#ffd166">${totalCoins}</strong><br>Buy a look, then equip it for your next run.</p>${rows}<button class="tertiary" id="shopBack">BACK TO MENU</button></div>`;
+ overlay.classList.remove('hidden');
+ overlay.querySelectorAll('[data-skin]').forEach(btn=>btn.addEventListener('click',()=>{const sk=skins.find(item=>item.id===btn.dataset.skin);if(!sk)return;if(ownedSkins.includes(sk.id)){selectedSkin=sk.id;saveSkins();showSkinShop();return;}if(totalCoins>=sk.cost){totalCoins-=sk.cost;ownedSkins.push(sk.id);selectedSkin=sk.id;try{localStorage.setItem('colordash-coins',String(totalCoins));if(coinTotalEl)coinTotalEl.textContent=totalCoins;}catch(e){}saveSkins();showSkinShop();}else{btn.textContent='NOT ENOUGH COINS';}}));
+ document.getElementById('shopBack').addEventListener('click',showMainMenu);
 }
 function showHowToPlay(){
  overlay.innerHTML=`<div class="card"><div class="kicker">QUICK GUIDE</div><h1 style="font-size:38px">HOW TO<br><span>PLAY</span></h1>
@@ -128,6 +142,7 @@ window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-
 startBtn.addEventListener('click',reset);
 document.getElementById('howToPlay').addEventListener('click',showHowToPlay);
 document.getElementById('settings').addEventListener('click',showSettings);
+document.getElementById('skinShop').addEventListener('click',showSkinShop);
 function burst(x,y,color){for(let i=0;i<12;i++)particles.push({x,y,vx:(Math.random()-.5)*180,vy:(Math.random()-.5)*180,life:.5,color})}
 function update(dt){animTime+=dt;if(!playing)return;survivalRemainder+=dt*10;const earned=Math.floor(survivalRemainder);if(earned>0){score+=earned;survivalRemainder-=earned;}
 const nextLevel=Math.min(10,1+Math.floor(score/100));if(nextLevel!==level){level=nextLevel;if(levelEl)levelEl.textContent=String(level);const hint=document.getElementById('hint');if(hint)hint.textContent='LEVEL '+level+' · KEEP MOVING!';}
@@ -157,15 +172,15 @@ ctx.strokeStyle='#253458';ctx.setLineDash([8,12]);ctx.beginPath();ctx.moveTo(W*.
 for(const o of obstacles){const x=laneX(o.lane)-15;ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ff4f9a';ctx.fillStyle='#ff4f9a';roundRect(x,o.y-15,30,30,7);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#ffc2dc';ctx.stroke()}
 for(const c of coins){ctx.shadowBlur=glowEnabled?18:0;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(laneX(c.lane),c.y,c.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff0b0';ctx.lineWidth=2;ctx.stroke()}
 // Cyan movement trail fades behind the player.
-for(const t of playerTrail){ctx.globalAlpha=Math.max(0,t.life/t.max)*.65;ctx.fillStyle='#58f0ff';ctx.shadowBlur=glowEnabled?12:0;ctx.shadowColor='#58f0ff';ctx.beginPath();ctx.arc(t.x,t.y,t.r*(t.life/t.max),0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.shadowBlur=0;
-const x=playerX,y=playerY,pulse=1+Math.sin(animTime*7)*.045,body=15*pulse;
-ctx.save();ctx.translate(x,y);ctx.rotate(playerTilt);ctx.shadowBlur=glowEnabled?27:0;ctx.shadowColor='#58f0ff';
+for(const t of playerTrail){ctx.globalAlpha=Math.max(0,t.life/t.max)*.65;ctx.fillStyle=(skins.find(sk=>sk.id===selectedSkin)||skins[0]).color;ctx.shadowBlur=glowEnabled?12:0;ctx.shadowColor=(skins.find(sk=>sk.id===selectedSkin)||skins[0]).color;ctx.beginPath();ctx.arc(t.x,t.y,t.r*(t.life/t.max),0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;ctx.shadowBlur=0;
+const skin=skins.find(sk=>sk.id===selectedSkin)||skins[0];const x=playerX,y=playerY,pulse=1+Math.sin(animTime*7)*.045,body=15*pulse;
+ctx.save();ctx.translate(x,y);ctx.rotate(playerTilt);ctx.shadowBlur=glowEnabled?27:0;ctx.shadowColor=skin.color;
 // Short energy fins give the player a fast, futuristic silhouette.
-ctx.fillStyle='#58f0ff';ctx.globalAlpha=.8;ctx.beginPath();ctx.moveTo(-body*.55,8);ctx.lineTo(-body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(-body*.15,12);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(body*.55,8);ctx.lineTo(body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(body*.15,12);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
-const pg=ctx.createLinearGradient(-body,-body,body,body);pg.addColorStop(0,'#d9ffff');pg.addColorStop(.35,'#58f0ff');pg.addColorStop(1,'#398bff');ctx.fillStyle=pg;roundRect(-body,-body,body*2,body*2,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#e8ffff';ctx.lineWidth=2;roundRect(-body*.67,-body*.67,body*1.34,body*1.34,6);ctx.stroke();
+ctx.fillStyle=skin.color;ctx.globalAlpha=.8;ctx.beginPath();ctx.moveTo(-body*.55,8);ctx.lineTo(-body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(-body*.15,12);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(body*.55,8);ctx.lineTo(body*1.05,17+Math.sin(animTime*20)*2);ctx.lineTo(body*.15,12);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+const pg=ctx.createLinearGradient(-body,-body,body,body);pg.addColorStop(0,skin.light);pg.addColorStop(.35,skin.color);pg.addColorStop(1,skin.dark);ctx.fillStyle=pg;roundRect(-body,-body,body*2,body*2,9);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#e8ffff';ctx.lineWidth=2;roundRect(-body*.67,-body*.67,body*1.34,body*1.34,6);ctx.stroke();
 ctx.fillStyle='#ffffff';ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(0,0,3.3+Math.sin(animTime*9)*.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;ctx.restore();
 for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*2);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)}ctx.globalAlpha=1;
-if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle='#58f0ff';ctx.fillRect(0,H-4,W*prog,4)}
+if(playing){const prog=Math.min(score/250,1);ctx.fillStyle='#253458';ctx.fillRect(0,H-4,W,4);ctx.fillStyle=(skins.find(sk=>sk.id===selectedSkin)||skins[0]).color;ctx.fillRect(0,H-4,W*prog,4)}
 requestAnimationFrame(loop)}
 function loop(t){const dt=Math.min((t-last)/1000||0,.04);last=t;update(dt);draw()}
 requestAnimationFrame(t=>{last=t;loop(t)});
