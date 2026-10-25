@@ -41,13 +41,14 @@ button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;bo
 <body>
 <div id="wrap">
 <canvas id="game" aria-label="Color Dash game"></canvas>
-<div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div></div></div><div id="levelHud"><div class="stat">LEVEL</div><div id="levelNum">1</div></div>
+<div id="hud"><div><div class="stat">SCORE</div><div class="num" id="score">0</div></div><div id="coinHud" style="position:absolute;top:82px;left:18px"><div class="stat">🟡 COINS</div><div class="num" id="coinTotal">0</div></div><div style="text-align:right"><div class="stat">BEST</div><div class="num" id="best">0</div></div></div><div id="levelHud"><div class="stat">LEVEL</div><div id="levelNum">1</div></div>
 <div id="hint">TAP LEFT OR RIGHT TO DODGE</div>
 <div id="overlay"><div class="card">
 <div class="menu-mark" aria-hidden="true"><span></span><span></span><span></span></div>
 <div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1>
-<p>Dodge the pink blocks. Collect golden sparks. Survive as long as you can and beat your best score.</p>
-<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0 8px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">0</strong></div>
+<p>Dodge pink blocks, collect golden coins, and build your coin stash. Your coins are saved on this device.</p>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 0 4px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">0</strong></div>
+<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 8px"><span class="stat">🟡 TOTAL COINS</span><strong style="font-size:23px;color:#ffd166">${totalCoins}</strong></div>
 <button id="start">PLAY NOW</button>
 <div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
 <div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
@@ -57,23 +58,24 @@ button.tertiary{background:transparent;color:#aebee8;border:1px solid #33456f;bo
 <script>
 (()=>{
 const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
-const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),levelEl=document.getElementById('levelNum');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),levelEl=document.getElementById('levelNum'),coinTotalEl=document.getElementById('coinTotal');
 let W=360,H=640,dpr=1,playing=false,score=0,best=0,last=0,spawn=0,coinSpawn=0,speed=210,playerLane=1,playerX=0,playerY=0,playerTilt=0,animTime=0,trailTimer=0,obstacles=[],coins=[],particles=[],playerTrail=[],stars=[],survivalRemainder=0;
-let glowEnabled=true,level=1,lastObstacleLane=-1;
-try{best=Number(localStorage.getItem('colordash-best')||0)}catch(e){}bestEl.textContent=best;
+let glowEnabled=true,level=1,lastObstacleLane=-1,totalCoins=0,runCoins=0;
+try{best=Number(localStorage.getItem('colordash-best')||0);totalCoins=Number(localStorage.getItem('colordash-coins')||0)}catch(e){}bestEl.textContent=best;if(coinTotalEl)coinTotalEl.textContent=totalCoins;
 const menuBestEl=document.getElementById('menuBest');if(menuBestEl)menuBestEl.textContent=best;
 function resize(){const r=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);playerY=H*.79;if(!playerX)playerX=laneX(playerLane);stars=Array.from({length:55},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+.4,a:Math.random()*.6+.15}));}
 window.addEventListener('resize',resize);resize();
 function laneX(l){return W*(.2+l*.3)}
 function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
-function reset(){score=0;survivalRemainder=0;speed=210;level=1;lastObstacleLane=-1;spawn=.85;coinSpawn=1.5;obstacles=[];coins=[];particles=[];playerTrail=[];playerLane=1;playerX=laneX(1);playerTilt=0;trailTimer=0;playing=true;last=performance.now();scoreEl.textContent='0';if(levelEl)levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
+function reset(){score=0;runCoins=0;survivalRemainder=0;speed=210;level=1;lastObstacleLane=-1;spawn=.85;coinSpawn=1.5;obstacles=[];coins=[];particles=[];playerTrail=[];playerLane=1;playerX=laneX(1);playerTilt=0;trailTimer=0;playing=true;last=performance.now();scoreEl.textContent='0';if(levelEl)levelEl.textContent='1';overlay.classList.add('hidden');document.getElementById('hint').textContent='TAP LEFT OR RIGHT TO DODGE';}
 function showMainMenu(){
  playing=false;
  overlay.innerHTML=`<div class="card">
  <div class="menu-mark" aria-hidden="true"><span></span><span></span><span></span></div>
  <div class="kicker">A TINY ARCADE CHALLENGE</div><h1>COLOR<br><span>DASH</span></h1>
- <p>Dodge the pink blocks. Collect golden sparks. Survive as long as you can and beat your best score.</p>
- <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:18px 0 8px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">${best}</strong></div>
+ <p>Dodge pink blocks, collect golden coins, and build your coin stash. Your coins are saved on this device.</p>
+ <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 0 4px"><span class="stat">YOUR BEST</span><strong id="menuBest" style="font-size:23px;color:#58f0ff">${best}</strong></div>
+ <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 8px"><span class="stat">🟡 TOTAL COINS</span><strong style="font-size:23px;color:#ffd166">${totalCoins}</strong></div>
  <button id="start">PLAY NOW</button>
  <div class="menu-buttons"><button class="secondary" id="howToPlay">HOW TO PLAY</button><button class="secondary" id="settings">SETTINGS</button></div>
  <div class="menu-feature"><span>3 LANES</span><span>DODGE</span><span>COLLECT</span></div>
@@ -89,7 +91,7 @@ function showHowToPlay(){
  <div class="option-row"><span>Move left</span><strong style="color:#58f0ff">← / A</strong></div>
  <div class="option-row"><span>Move right</span><strong style="color:#58f0ff">→ / D</strong></div>
  <div class="option-row"><span>Dodge</span><strong style="color:#ff4f9a">PINK BLOCKS</strong></div>
- <div class="option-row"><span>Collect</span><strong style="color:#ffd166">+25 POINTS</strong></div>
+ <div class="option-row"><span>Collect coins</span><strong style="color:#ffd166">+25 PTS · +1 COIN</strong></div>
  <p class="small">On touch screens, tap the left or right half of the game area.</p>
  <button id="guidePlay">LET'S PLAY</button><button class="tertiary" id="guideBack">BACK TO MENU</button></div>`;
  overlay.classList.remove('hidden');
@@ -101,6 +103,7 @@ function showSettings(){
  <p>Adjust the visual effects or clear your saved best score.</p>
  <div class="option-row"><span>Glow effects</span><button class="secondary" id="glowToggle">${glowEnabled?'ON':'OFF'}</button></div>
  <div class="option-row"><span>Best score</span><strong style="color:#58f0ff">${best}</strong></div>
+ <div class="option-row"><span>Total coins</span><strong style="color:#ffd166">${totalCoins}</strong></div>
  <button class="tertiary" id="clearBest">RESET BEST SCORE</button>
  <button id="settingsBack">BACK TO MENU</button></div>`;
  overlay.classList.remove('hidden');
@@ -109,10 +112,10 @@ function showSettings(){
  document.getElementById('settingsBack').addEventListener('click',showMainMenu);
 }
 function end(){
- playing=false;best=Math.max(best,score);bestEl.textContent=best;
+ playing=false;best=Math.max(best,score);bestEl.textContent=best;try{localStorage.setItem('colordash-coins',String(totalCoins))}catch(e){}
  try{localStorage.setItem('colordash-best',best)}catch(e){}
  overlay.innerHTML=`<div class="card"><div class="kicker">RUN COMPLETE</div><h1>GAME<br><span>OVER</span></h1>
- <p>You scored <strong style="color:#fff">${score}</strong> points.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p>
+ <p>You scored <strong style="color:#fff">${score}</strong> points.<br>You collected <strong style="color:#ffd166">${runCoins}</strong> coins this run.<br>Your total coin stash is <strong style="color:#ffd166">${totalCoins}</strong>.<br>Your best is <strong style="color:#58f0ff">${best}</strong>.</p>
  <button id="again">TRY AGAIN</button><button class="secondary" id="gameMenu">MAIN MENU</button>
  <div class="small">ONE MORE RUN? YOU'VE GOT THIS.</div></div>`;
  overlay.classList.remove('hidden');
@@ -143,7 +146,7 @@ const targetX=laneX(playerLane),oldX=playerX;playerX+=(targetX-playerX)*(1-Math.
 trailTimer-=dt;if(Math.abs(targetX-playerX)>1.5&&trailTimer<=0){playerTrail.push({x:px,y:py+13,life:.28,max:.28,r:3+Math.random()*3});trailTimer=.025;}
 for(const o of obstacles){if(Math.abs(laneX(o.lane)-px)<18&&Math.abs(o.y-py)<27){burst(px,py,'#ff4f9a');end();return}}
 obstacles=obstacles.filter(o=>o.y<H+60);
-coins=coins.filter(c=>{if(Math.abs(laneX(c.lane)-px)<19&&Math.abs(c.y-py)<27){score+=25;scoreEl.textContent=score;burst(laneX(c.lane),c.y,'#ffd166');return false}return c.y<H+30});
+coins=coins.filter(c=>{if(Math.abs(laneX(c.lane)-px)<19&&Math.abs(c.y-py)<27){score+=25;runCoins+=1;totalCoins+=1;scoreEl.textContent=score;if(coinTotalEl)coinTotalEl.textContent=totalCoins;try{localStorage.setItem('colordash-coins',String(totalCoins))}catch(e){}burst(laneX(c.lane),c.y,'#ffd166');return false}return c.y<H+30});
 particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;return p.life>0});
 playerTrail=playerTrail.filter(p=>{p.life-=dt;p.y+=dt*42;return p.life>0});
 }
